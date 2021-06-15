@@ -1,12 +1,14 @@
+#!/usr/bin/env python3
+
 from time import sleep
 
 from scapy.arch import get_if_addr, get_if_hwaddr
 from scapy.layers.inet import TCP, IP, UDP
 from scapy.layers.l2 import Ether
 from scapy.sendrecv import sendp
-from threading import Thread
+from threading import Thread, Event
 
-from e58pro.e58pro import E58ProHeader, E58ProSecondaryHeader, E58ProBasePayload, Command
+from e58pro import E58ProHeader, E58ProSecondaryHeader, E58ProBasePayload, Command
 
 DRONE_MAC = "18:b9:05:eb:16:ab"
 DRONE_IP = "192.168.169.1"
@@ -34,10 +36,10 @@ COMMAND_UDP_BASE = Ether(dst=DRONE_MAC) / \
                    UDP(sport=UDP_SRC_PORT, dport=UDP_DST_PORT)
 
 
-def start_tcp_pinger():
-    ping = TCP_PING_BASE.copy()
+def start_tcp_pinger(is_terminating: Event) -> None:
     def pinger():
-        while True:
+        ping = TCP_PING_BASE.copy()
+        while not is_terminating.is_set():
             sendp(ping, iface=INTERFACE, verbose=False)
             ping[TCP].sport += 1
             ping[TCP].seq += 1
@@ -50,11 +52,20 @@ def main():
     four_byte_packet = COMMAND_UDP_BASE / E58ProHeader()
     six_byte_packet = four_byte_packet / E58ProSecondaryHeader()
 
-    start_tcp_pinger()
+    terminating_event = Event()
+    start_tcp_pinger(terminating_event)
 
-    sendp(four_byte_packet * 5, iface=INTERFACE)
-    sendp(six_byte_packet * 5, iface=INTERFACE)
+    try:
+        sendp(four_byte_packet * 5, iface=INTERFACE)
+        sendp(six_byte_packet * 5, iface=INTERFACE)
 
-    takeoff_command = six_byte_packet / E58ProBasePayload(command=Command.TAKEOFF)
-    print(len(takeoff_command))
-    sendp(takeoff_command, iface=INTERFACE, loop=True, inter=0.5, verbose=False)  # Blocking
+        takeoff_command = six_byte_packet / E58ProBasePayload(command=Command.TAKEOFF)
+        print(len(takeoff_command))
+        sendp(takeoff_command, iface=INTERFACE, loop=True, inter=0.5, verbose=False)  # Blocking
+
+    except KeyboardInterrupt:
+        pass
+    finally:
+        terminating_event.set()
+
+main()
