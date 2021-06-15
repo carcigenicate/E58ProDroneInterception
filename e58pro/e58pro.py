@@ -2,12 +2,12 @@ from enum import IntFlag
 
 from scapy.layers.inet import UDP
 from scapy.packet import Packet, bind_layers
-from scapy.fields import XByteField, XByteEnumField, XNBytesField, LEIntField
+from scapy.fields import XByteField, XNBytesField, LEIntField
 
 class Command(IntFlag):
     """An enumeration of all the commands that the drone appears to be capable of,
     based on the recovered source code."""
-    TAKEOFF = 0x01  # TODO: Not 100% sure about this. It's'a default, unnamed command in the code.
+    TAKEOFF = 0x01  # TODO: Not 100% sure about this. It's a default, unnamed command in the code.
     STOP = 0x02
     GYRO_CHECK = 0x04
     ROLL = 0x08
@@ -41,6 +41,7 @@ class E58ProHeader(Packet):
             return bytes(mut_bytes)
         else:
             return this_layer + payload
+
 
 class E58ProSecondaryHeader(Packet):
     name = "E58ProSecondaryHeader"

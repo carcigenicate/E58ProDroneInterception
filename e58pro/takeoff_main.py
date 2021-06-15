@@ -14,7 +14,7 @@ DRONE_MAC = "18:b9:05:eb:16:ab"
 DRONE_IP = "192.168.169.1"
 
 TCP_DST_IP = "192.168.100.1"
-TCP_START_SRC_PORT = 50000  # Arbitrary
+TCP_START_SRC_PORT = 50000  # Arbitrary.
 TCP_DST_PORT = 18881
 
 UDP_SRC_PORT = 34914  # Arbitrary. Will be where video is sent back?
@@ -48,6 +48,7 @@ def start_tcp_pinger(is_terminating: Event) -> None:
     thread = Thread(target=pinger)
     thread.start()
 
+
 def main():
     four_byte_packet = COMMAND_UDP_BASE / E58ProHeader()
     six_byte_packet = four_byte_packet / E58ProSecondaryHeader()
@@ -56,16 +57,17 @@ def main():
     start_tcp_pinger(terminating_event)
 
     try:
-        sendp(four_byte_packet * 5, iface=INTERFACE)
-        sendp(six_byte_packet * 5, iface=INTERFACE)
+        print("Sending initialization packets...")
+        sendp(four_byte_packet * 5, iface=INTERFACE, verbose=False)
+        sendp(six_byte_packet * 5, iface=INTERFACE, verbose=False)
 
-        takeoff_command = six_byte_packet / E58ProBasePayload(command=Command.TAKEOFF)
-        print(len(takeoff_command))
-        sendp(takeoff_command, iface=INTERFACE, loop=True, inter=0.5, verbose=False)  # Blocking
-
+        print("Sending takeoff/land commands...")
+        takeoff_command_packet = six_byte_packet / E58ProBasePayload(command=Command.TAKEOFF)
+        sendp(takeoff_command_packet, iface=INTERFACE, loop=True, inter=1, verbose=False)  # Blocking
     except KeyboardInterrupt:
         pass
     finally:
         terminating_event.set()
+
 
 main()
