@@ -8,13 +8,15 @@ from scapy.layers.l2 import Ether
 from scapy.sendrecv import sendp
 from threading import Thread, Event
 
-from e58pro import E58ProHeader, E58ProSecondaryHeader, E58ProBasePayload, Command
+from e58pro import E58ProHeader, E58ProSecondaryHeader
+from command_shell import CommandShell
+from commands import produce_commands
 
 DRONE_MAC = "18:b9:05:eb:16:ab"
 DRONE_IP = "192.168.169.1"
 
 TCP_DST_IP = "192.168.100.1"
-TCP_START_SRC_PORT = 50000  # Arbitrary.
+TCP_START_SRC_PORT = 50000  # Arbitrary
 TCP_DST_PORT = 18881
 
 UDP_SRC_PORT = 34914  # Arbitrary. Will be where video is sent back?
@@ -57,15 +59,15 @@ def main():
     start_tcp_pinger(terminating_event)
 
     try:
-        print("Sending initialization packets...")
         sendp(four_byte_packet * 5, iface=INTERFACE, verbose=False)
         sendp(six_byte_packet * 5, iface=INTERFACE, verbose=False)
 
-        print("Sending takeoff/land commands...")
-        takeoff_command_packet = six_byte_packet / E58ProBasePayload(command=Command.TAKEOFF)
-        sendp(takeoff_command_packet, iface=INTERFACE, loop=True, inter=1, verbose=False)  # Blocking
+        command_shell = CommandShell(produce_commands(INTERFACE, six_byte_packet))
+        command_shell.command_loop()
     except KeyboardInterrupt:
         pass
+    except PermissionError:
+        raise PermissionError("Must be run as root!")
     finally:
         terminating_event.set()
 
