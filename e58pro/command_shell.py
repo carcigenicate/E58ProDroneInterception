@@ -74,23 +74,56 @@ class CommandShell:
 
         self._is_terminating = False
 
+    # def command_loop(self) -> None:
+    #     try:
+    #         while not self._is_terminating:
+    #             raw_command = self._command_producer()
+    #             command, *args = raw_command.split()
+    #             lower_command = command.lower()
+    #             command_func = self._commands.get(lower_command, None)
+    #             if command_func is None:
+    #                 self._result_consumer(f"Command Not Found: {lower_command}")
+    #             else:
+    #                 parsed_args = map(_parse_argument, args)
+    #                 try:
+    #                     result = command_func(*parsed_args)
+    #                     if result is not None:
+    #                         self._result_consumer(result)
+    #                 except Exception as e:
+    #                     self._result_consumer(f"Command Error: {e}")
+    #     except KeyboardInterrupt:
+    #         pass
+
     def command_loop(self) -> None:
         try:
+            last_command = None
+            last_args = None
             while not self._is_terminating:
                 raw_command = self._command_producer()
-                command, *args = raw_command.split()
-                lower_command = command.lower()
-                command_func = self._commands.get(lower_command, None)
-                if command_func is None:
-                    self._result_consumer(f"Command Not Found: {lower_command}")
+                # Figure out what command and args to use
+                if raw_command:
+                    command, *args = raw_command.split()
+                    lower_command = command.lower()
+                    command_func = self._commands.get(lower_command, None)
+                    parsed_args = [_parse_argument(arg) for arg in args]
+                    if command_func is None:
+                        self._result_consumer(f"Command Not Found: {lower_command}")
+                        continue  # Eww
+                elif last_command is not None:
+                    command_func = last_command
+                    parsed_args = last_args
                 else:
-                    parsed_args = map(_parse_argument, args)
-                    try:
-                        result = command_func(*parsed_args)
-                        if result is not None:
-                            self._result_consumer(result)
-                    except Exception as e:
-                        self._result_consumer(f"Command Error: {e}")
+                    continue  # No previous command to repeat
+
+                # Then use it
+                try:
+                    result = command_func(*parsed_args)
+                    if result is not None:
+                        self._result_consumer(result)
+                    last_command = command_func
+                    last_args = parsed_args
+                except Exception as e:
+                    self._result_consumer(f"Command Error: {e}")
         except KeyboardInterrupt:
             pass
 
@@ -123,19 +156,19 @@ class CommandShell:
 
         return mapping_from_named_functions([help, exit])
 
-def multi(iters: int, name: str) -> str:
-    """Multiplies Strings!"""
-    return name * int(iters)
-
-def add(n: int, m: int) -> str:
-    """Adds Numbers!"""
-    return str(n + m)
-
-def greet(name: str) -> str:
-    """Greets You!"""
-    return f"Hello {name}!"
-
-
-test_commands = mapping_from_named_functions([multi, add, greet])
+# def multi(iters: int, name: str) -> str:
+#     """Multiplies Strings!"""
+#     return name * int(iters)
+#
+# def add(n: int, m: int) -> str:
+#     """Adds Numbers!"""
+#     return str(n + m)
+#
+# def greet(name: str) -> str:
+#     """Greets You!"""
+#     return f"Hello {name}!"
+#
+#
+# test_commands = mapping_from_named_functions([multi, add, greet])
 
 # python -c "import command_shell as cs; s=cs.CommandShell(cs.test_commands);s.command_loop();"
