@@ -1,9 +1,17 @@
+from typing import Iterable, Sequence
+
 from scapy.packet import Packet
 from scapy.sendrecv import sendp
 
 from e58pro import E58ProBasePayload, Command
-from command_shell import mapping_from_named_functions, CommandMapping
+from interactive_shell import mapping_from_named_functions, CommandMapping
 
+HELP_CHUNK_SIZE = 5
+
+
+def _chunk(seq: Sequence, chunk_size: int):
+    for i in range(0, len(seq), chunk_size):
+        yield seq[i:i+chunk_size]
 
 
 def produce_commands(interface_name: str, packet_base: Packet) -> CommandMapping:
@@ -18,8 +26,8 @@ def produce_commands(interface_name: str, packet_base: Packet) -> CommandMapping
         """Kills the motors for safety."""
         _send(E58ProBasePayload(command=Command.STOP))
 
-    def man(*pairs):
-        """man(ually) set attributes of the packet. Available attributes are:\n"""
+    def set(*pairs):
+        """Set attributes of the packet. Available attributes are:\n"""
         if len(pairs) & 1:
             return "Must supply an even number of arguments."
         else:
@@ -27,10 +35,11 @@ def produce_commands(interface_name: str, packet_base: Packet) -> CommandMapping
             it = iter(pairs)
             for attr in it:
                 val = int(next(it))
-                print(f"Pair: {attr}, {val}")
                 setattr(payload, attr, val)
+            payload.show()
             _send(payload)
 
-    man.__doc__ += ", ".join(field.name for field in E58ProBasePayload.fields_desc)
+    names = [field.name for field in E58ProBasePayload.fields_desc]
+    set.__doc__ += ",\n".join(", ".join(chunk) for chunk in _chunk(names, HELP_CHUNK_SIZE))
 
-    return mapping_from_named_functions([takeoff, stop, man])
+    return mapping_from_named_functions([takeoff, stop, set])

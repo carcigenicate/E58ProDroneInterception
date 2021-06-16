@@ -2,14 +2,14 @@
 
 from time import sleep
 
-from scapy.arch import get_if_addr, get_if_hwaddr
+from scapy.layers.dot11 import RadioTap, Dot11FCS, Dot11QoS
 from scapy.layers.inet import TCP, IP, UDP
-from scapy.layers.l2 import Ether
+from scapy.layers.l2 import LLC, SNAP
 from scapy.sendrecv import sendp
 from threading import Thread, Event
 
 from e58pro import E58ProHeader, E58ProSecondaryHeader
-from command_shell import CommandShell
+from interactive_shell import InteractiveShell
 from commands import produce_commands
 
 DRONE_MAC = "18:b9:05:eb:16:ab"
@@ -23,17 +23,23 @@ UDP_SRC_PORT = 34914  # Arbitrary. Will be where video is sent back?
 UDP_DST_PORT = 8800
 
 INTERFACE = "wlx4401bb9182b7"
-try:
-    OUR_IP = get_if_addr(INTERFACE)
-    OUR_MAC = get_if_hwaddr(INTERFACE)
-except OSError as e:
-    raise OSError(f"Cannot find device {INTERFACE}") from e
 
-TCP_PING_BASE = Ether(dst=DRONE_MAC) / \
+# FIXME: Update with controller ap IP/MAC.
+OUR_IP = "192.168.169.2"
+OUR_MAC = DRONE_MAC
+
+
+L2_BASE = RadioTap(present="Rate+TXFlags") / \
+          Dot11FCS(addr1=DRONE_MAC, addr2=OUR_MAC, addr3=DRONE_MAC, type=2, subtype=8) / \
+          Dot11QoS() / \
+          LLC(ssap=0xAA, dsap=0xAA) / \
+          SNAP()
+
+TCP_PING_BASE = L2_BASE / \
                 IP(src=OUR_IP, dst=TCP_DST_IP) / \
-                TCP(sport=TCP_START_SRC_PORT, dport=TCP_DST_PORT)  # Add "options" to match drone traffic?
+                TCP(sport=TCP_START_SRC_PORT, dport=TCP_DST_PORT)
 
-COMMAND_UDP_BASE = Ether(dst=DRONE_MAC) / \
+COMMAND_UDP_BASE = L2_BASE / \
                    IP(src=OUR_IP, dst=DRONE_IP) / \
                    UDP(sport=UDP_SRC_PORT, dport=UDP_DST_PORT)
 
@@ -62,8 +68,8 @@ def main():
         sendp(four_byte_packet * 5, iface=INTERFACE, verbose=False)
         sendp(six_byte_packet * 5, iface=INTERFACE, verbose=False)
 
-        command_shell = CommandShell(produce_commands(INTERFACE, six_byte_packet))
-        command_shell.command_loop()
+        shell = InteractiveShell(produce_commands(INTERFACE, six_byte_packet))
+        shell.loop()
     except KeyboardInterrupt:
         pass
     except PermissionError:
