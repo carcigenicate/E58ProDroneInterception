@@ -63,7 +63,7 @@ def mapping_from_named_functions(commands) -> CommandMapping:
     return {command.__name__: command for command in commands}
 
 
-class CommandShell:
+class InteractiveShell:
     def __init__(self,
                  command_mapping: dict[str, Command],
                  command_producer: Callable[[], str] = DEFAULT_COMMAND_PRODUCER,
@@ -74,7 +74,7 @@ class CommandShell:
 
         self._is_terminating = False
 
-    # def command_loop(self) -> None:
+    # def loop(self) -> None:
     #     try:
     #         while not self._is_terminating:
     #             raw_command = self._command_producer()
@@ -94,7 +94,7 @@ class CommandShell:
     #     except KeyboardInterrupt:
     #         pass
 
-    def command_loop(self) -> None:
+    def loop(self) -> None:
         try:
             last_command = None
             last_args = None
@@ -113,9 +113,10 @@ class CommandShell:
                     command_func = last_command
                     parsed_args = last_args
                 else:
-                    continue  # No previous command to repeat
+                    # No previous command to repeat
+                    continue
 
-                # Then use it
+                # Then use them
                 try:
                     result = command_func(*parsed_args)
                     if result is not None:
@@ -170,5 +171,3 @@ class CommandShell:
 #
 #
 # test_commands = mapping_from_named_functions([multi, add, greet])
-
-# python -c "import command_shell as cs; s=cs.CommandShell(cs.test_commands);s.command_loop();"

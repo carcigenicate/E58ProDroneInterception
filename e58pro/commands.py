@@ -5,6 +5,7 @@ from e58pro import E58ProBasePayload, Command
 from command_shell import mapping_from_named_functions, CommandMapping
 
 
+
 def produce_commands(interface_name: str, packet_base: Packet) -> CommandMapping:
     def _send(payload):
         sendp(packet_base / payload, iface=interface_name, verbose=False)
@@ -20,7 +21,7 @@ def produce_commands(interface_name: str, packet_base: Packet) -> CommandMapping
     def man(*pairs):
         """man(ually) set attributes of the packet. Available attributes are:\n"""
         if len(pairs) & 1:
-            return "Must supply and even number of arguments."
+            return "Must supply an even number of arguments."
         else:
             payload = E58ProBasePayload()
             it = iter(pairs)
