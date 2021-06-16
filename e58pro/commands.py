@@ -36,7 +36,6 @@ def produce_commands(interface_name: str, packet_base: Packet) -> CommandMapping
             for attr in it:
                 val = int(next(it))
                 setattr(payload, attr, val)
-            payload.show()
             _send(payload)
 
     names = [field.name for field in E58ProBasePayload.fields_desc]
