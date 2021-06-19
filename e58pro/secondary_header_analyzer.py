@@ -33,13 +33,16 @@ def main():
     packet = COMMAND_UDP_BASE / E58ProHeader() / E58ProSecondaryHeader()
 
     for payload in range(256):
+        print(f"Payload: {payload}")
         packet[E58ProSecondaryHeader].secondary_header_payload = payload
-        response = srp1(packet, iface=INTERFACE, verbose=False)
+        response = srp1(packet, iface=INTERFACE, verbose=False, timeout=1)
         try:
-            print(f"Payload: {payload}")
-            response[UDP].show()
+            if response is None:
+                print("Timed out")
+            else:
+                response[UDP].show()
         except IndexError as e:
-            print(f"No UDP?: {e}")
+            print(f"No UDP or no response: {e}")
         print("-" * 100)
 
 main()
