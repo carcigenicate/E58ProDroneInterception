@@ -35,9 +35,11 @@ def main():
     for payload in range(256):
         packet[E58ProSecondaryHeader].secondary_header_payload = payload
         response = srp1(packet, iface=INTERFACE, verbose=False)
-        print(f"Payload: {payload}")
-        response[UDP].show()
-        print("-"*100)
-
+        try:
+            print(f"Payload: {payload}")
+            response[UDP].show()
+        except IndexError as e:
+            print(f"No UDP?: {e}")
+        print("-" * 100)
 
 main()
