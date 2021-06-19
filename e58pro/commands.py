@@ -20,11 +20,11 @@ def produce_commands(interface_name: str, packet_base: Packet) -> CommandMapping
 
     def takeoff():
         """Initiates takeoff."""
-        _send(E58ProBasePayload(command=Command.TAKEOFF))
+        return _send(E58ProBasePayload(command=Command.TAKEOFF))
 
     def stop():
         """Kills the motors for safety."""
-        _send(E58ProBasePayload(command=Command.STOP))
+        return _send(E58ProBasePayload(command=Command.STOP))
 
     def set(*pairs):
         """Set attributes of the packet. Available attributes are:\n"""
@@ -36,7 +36,7 @@ def produce_commands(interface_name: str, packet_base: Packet) -> CommandMapping
             for attr in it:
                 val = int(next(it))
                 setattr(payload, attr, val)
-            _send(payload)
+            return _send(payload)
 
     names = [field.name for field in E58ProBasePayload.fields_desc]
     set.__doc__ += ",\n".join(", ".join(chunk) for chunk in _chunk(names, HELP_CHUNK_SIZE))
