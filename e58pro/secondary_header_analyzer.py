@@ -35,7 +35,9 @@ def main():
     for payload in range(256):
         packet[E58ProSecondaryHeader].secondary_header_payload = payload
         response = srp1(packet, iface=INTERFACE, verbose=False)
-        response.show()
+        print(f"Payload: {payload}")
+        response[UDP].show()
+        print("-"*100)
 
 
 main()
