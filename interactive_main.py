@@ -8,9 +8,9 @@ from scapy.layers.l2 import Ether
 from scapy.sendrecv import sendp
 from threading import Thread, Event
 
-from e58pro import E58ProHeader, E58ProSecondaryHeader
-from interactive_shell import InteractiveShell
-from commands import produce_commands
+from e58pro.e58pro import E58ProHeader, E58ProSecondaryHeader, E58ProBasePayload
+from interactive_shell.interactive_shell import InteractiveShell
+from e58pro.commands import produce_commands
 
 DRONE_MAC = "18:b9:05:eb:16:ab"
 DRONE_IP = "192.168.169.1"
@@ -38,16 +38,31 @@ COMMAND_UDP_BASE = Ether(dst=DRONE_MAC) / \
                    UDP(sport=UDP_SRC_PORT, dport=UDP_DST_PORT)
 
 
-def start_tcp_pinger(is_terminating: Event) -> None:
-    def pinger():
-        ping = TCP_PING_BASE.copy()
-        while not is_terminating.is_set():
-            sendp(ping, iface=INTERFACE, verbose=False)
-            ping[TCP].sport += 1
-            ping[TCP].seq += 1
-            sleep(0.4)
+RAW_STUFF = "ef028000020200010200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000324b142d000001000000000000000100000018000000ffffffffffffffff020000000000000003000000100000001e351b18"
+RAW_STUFF = bytes.fromhex(RAW_STUFF)
 
-    thread = Thread(target=pinger)
+# def start_tcp_pinger(is_terminating: Event) -> None:
+#     def pinger():
+#         ping = TCP_PING_BASE.copy()
+#         while not is_terminating.is_set():
+#             sendp(ping, iface=INTERFACE, verbose=False)
+#             ping[TCP].sport += 1
+#             ping[TCP].seq += 1
+#             sleep(0.4)
+#
+#     thread = Thread(target=pinger)
+#     thread.start()
+
+def start_udp_keepalive(is_terminating: Event) -> None:
+    def keep_alive_loop():
+        comm_keep_alive = COMMAND_UDP_BASE / E58ProHeader() / E58ProSecondaryHeader() / E58ProBasePayload()
+        video_keep_alive = COMMAND_UDP_BASE / RAW_STUFF
+        while not is_terminating.is_set():
+            sendp(comm_keep_alive, iface=INTERFACE, verbose=False)
+            sendp(video_keep_alive, iface=INTERFACE, verbose=False)
+            sleep(0.5)
+
+    thread = Thread(target=keep_alive_loop)
     thread.start()
 
 
@@ -56,7 +71,7 @@ def main():
     six_byte_packet = four_byte_packet / E58ProSecondaryHeader()
 
     terminating_event = Event()
-    start_tcp_pinger(terminating_event)
+    start_udp_keepalive(terminating_event)
 
     try:
         sendp(four_byte_packet * 5, iface=INTERFACE, verbose=False)

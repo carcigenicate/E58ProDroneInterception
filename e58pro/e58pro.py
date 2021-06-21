@@ -4,6 +4,7 @@ from scapy.layers.inet import UDP
 from scapy.packet import Packet, bind_layers
 from scapy.fields import XByteField, XNBytesField, LEIntField
 
+
 class Command(IntFlag):
     """An enumeration of all the commands that the drone appears to be capable of,
     based on the recovered source code."""
@@ -77,7 +78,7 @@ class E58ProBasePayload(Packet):
                    XByteField("left_horz", 0x80),
                    XByteField("command", 0x00),
                    XByteField("control_modifier", 0x02),  # What should the default be? 0 or 2?
-                   XNBytesField("empty", 0x00, 10),
+                   XNBytesField("empty_block", 0x00, 10),
                    XByteField("checksum", None),
                    XByteField("controller_footer", 0x99),
 
@@ -99,6 +100,17 @@ class E58ProBasePayload(Packet):
             return this_layer + payload
 
 
+class E58VideoKeepAlive(Packet):  # TODO: ?
+    fields_desc = [LEIntField("sequence_number", 0),
+                   LEIntField("empty_integer", 0),
+                   XByteField("ending_switch", 0x01),  # TODO: Set in post_build
+                   XNBytesField("empty_1", 0x00, 3),
+                   XByteField("extension_type_1", 0x18),
+                   XNBytesField("empty_2", 0x00, 3),  # TODO: Set in post_build
+                   XNBytesField("pre_footer", 0xFFFFFFFFFFFFFF, 7),
+                   XByteField("footer", 0xFF)]  # TODO: Set in post_build
+
+
 # Any inbound UDP traffic with a destination port of 8800 will be parsed as the controller body
 bind_layers(UDP, E58ProHeader, dport=8800)
 bind_layers(E58ProHeader, E58ProSecondaryHeader)  # TODO: Need to specify filters?
@@ -109,5 +121,5 @@ def tests():
     p = E58ProBasePayload()
 
     assert len(p) == 0x52
-    assert p.empty == 0x00
+    assert p.empty_block == 0x00
     assert E58ProBasePayload(bytes(p)).checksum == 0x02
