@@ -1,9 +1,11 @@
 from enum import IntFlag
 
 from scapy.layers.inet import UDP
-from scapy.packet import Packet, bind_layers
+from scapy.packet import Packet, bind_layers, Raw
 from scapy.fields import XByteField, XNBytesField, LEIntField
 
+VIDEO_KEEP_ALIVE_PAYLOAD = b'\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x18\x00\x00\x00\xff\xff\xff\xff\xff' \
+                     b'\xff\xff\xff\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x10\x00\x00\x00\x1e5\x1b\x18'
 
 class Command(IntFlag):
     """An enumeration of all the commands that the drone appears to be capable of,
@@ -100,21 +102,19 @@ class E58ProBasePayload(Packet):
             return this_layer + payload
 
 
-class E58VideoKeepAlive(Packet):  # TODO: ?
-    fields_desc = [LEIntField("sequence_number", 0),
-                   LEIntField("empty_integer", 0),
-                   XByteField("ending_switch", 0x01),  # TODO: Set in post_build
-                   XNBytesField("empty_1", 0x00, 3),
-                   XByteField("extension_type_1", 0x18),
-                   XNBytesField("empty_2", 0x00, 3),  # TODO: Set in post_build
-                   XNBytesField("pre_footer", 0xFFFFFFFFFFFFFF, 7),
-                   XByteField("footer", 0xFF)]  # TODO: Set in post_build
-
 
 # Any inbound UDP traffic with a destination port of 8800 will be parsed as the controller body
 bind_layers(UDP, E58ProHeader, dport=8800)
 bind_layers(E58ProHeader, E58ProSecondaryHeader)  # TODO: Need to specify filters?
 bind_layers(E58ProSecondaryHeader, E58ProBasePayload)
+
+
+def new_default_command_payload() -> E58ProBasePayload:
+    return E58ProHeader() / E58ProSecondaryHeader() / E58ProBasePayload()
+
+
+def new_keep_alive_payload() -> Raw():
+    return new_default_command_payload() / Raw(VIDEO_KEEP_ALIVE_PAYLOAD)
 
 
 def tests():
