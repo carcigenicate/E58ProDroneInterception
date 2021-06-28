@@ -15,10 +15,13 @@ def main():
     parser.add_argument("--secs_per_channel", "-s", type=float, default=DEFAULT_CHANNEL_TIME)
     args = parser.parse_args()
 
-    if args.connected:
-        connected_main(args.interface)
-    else:
-        connectionless_main(args.interface, args.secs_per_channel)
+    try:
+        if args.connected:
+            connected_main(args.interface)
+        else:
+            connectionless_main(args.interface, args.secs_per_channel)
+    except KeyboardInterrupt:
+        pass
 
-
-main()
+if __name__ == "__main__":
+    main()

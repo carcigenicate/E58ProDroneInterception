@@ -3,7 +3,7 @@
 from typing import Optional
 
 from scapy.arch import get_if_addr
-from scapy.layers.dot11 import Dot11
+from scapy.layers.dot11 import Dot11, RadioTap, Dot11Deauth, Dot11Beacon, Dot11Elt
 from scapy.layers.inet import IP, UDP
 from scapy.packet import Packet
 from scapy.config import conf
@@ -19,6 +19,10 @@ WILDCARD_IP = "0.0.0.0"
 
 DRONE_COMMAND_RECEIVE_PORT = 8800
 DRONE_VIDEO_SEND_PORT = 1234
+
+COMPLEX_SCANNER_BPF_FILTER = "(wlan type mgt) or udp"
+
+SSID_ELEMENT_ID = 0
 
 
 def drone_packet_verifier(packet: Packet) -> Optional[AddressResults]:
@@ -44,18 +48,61 @@ def scan_for_drone(interface_name: str, secs_per_channel: float = 0.3) -> tuple[
                 return chan, addrs
 
 
+def _find_info_val_for(element_id: int, beacon: Dot11Beacon) -> Optional[bytes]:
+    layer = beacon
+    while layer:
+        if isinstance(layer, Dot11Elt) and layer.ID == element_id:
+            return layer.info
+        layer = layer.payload
+    return None
+
+
+def scan_for_drone_traffic(interface_name: str,
+                           secs_per_channel: float,
+                           ssid_prefix: bytes,
+                           command_receive_port: int,
+                           video_send_port: int
+                           ) -> tuple[int, Optional[Dot11Beacon], Optional[UDP], Optional[UDP]]:
+    """Scans each channel to find traffic that's indicative of a drone.
+    Returns a tuple of (channel, found_beacon?, found_command?, found_video?) if any of traffic was found.
+    For the SSID, only the prefix is checked. The entire strng doesn't need to match."""
+    while True:
+        last_channel = None
+        beacon = None
+        command = None
+        video = None
+        for chan, packet in scan_channels(interface_name, secs_per_channel, COMPLEX_SCANNER_BPF_FILTER):
+            if last_channel != chan:
+                if video or command or beacon:
+                    return last_channel, beacon, command, video
+                else:
+                    beacon = None
+                    command = None
+                    video = None
+                    last_channel = chan
+            else:
+                if Dot11Beacon in packet and _find_info_val_for(SSID_ELEMENT_ID, packet) == ssid_prefix:
+                    ssid = _find_info_val_for(SSID_ELEMENT_ID, packet)
+                    if ssid and ssid.startswith(ssid_prefix):
+                        beacon = packet
+                elif UDP in packet:
+                    if packet[UDP].dport == command_receive_port:
+                        command = packet
+                    elif packet[UDP].sport == video_send_port:
+                        video = packet
+
+
 def connectionless_main(interface_name: str, secs_per_channel: float) -> None:
     inter_controller = InterfaceController(interface_name)
     inter_controller.set_monitor_mode(True)
 
-    channel, addresses = scan_for_drone(interface_name, secs_per_channel)
+    print("Scanning for drone...")
+    channel, addrs = scan_for_drone(interface_name, secs_per_channel)
+    print(f"Found: {addrs}")
     inter_controller.set_channel(channel)  # Should already be on the correct channel, but we'll set it for correctness.
 
-    # Deauth?
-    # Pineapple deauthing may kill video feed?
-    # May need to either do a connection with video feed, or connectionless without a video feed.
-
-    connectionless_interception_routine(interface_name, addresses)
+    connectionless_interception_routine(interface_name, addrs)
+    print("Exiting")
 
 
 def connected_main(interface_name: str) -> None:
