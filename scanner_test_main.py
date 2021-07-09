@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from scapy.layers.inet import UDP
+from scapy.all import *
 
 from e58pro.auto_pwn import scan_for_drone_traffic
 from e58pro.e58pro import E58ProHeader, E58ProSecondaryHeader, E58ProBasePayload
@@ -26,10 +27,11 @@ INTERFACE = "wlx4401bb9182b7"
 #   - Beacon
 #   - Jam Controller
 
+
 def main():
     try:
         while True:
-            chan, *indicators = scan_for_drone_traffic(INTERFACE, 1, DRONE_SSID, COMMAND_RECEIVE_PORT, VIDEO_SEND_PORT)
+            chan, *indicators = scan_for_drone_traffic(INTERFACE, 2, DRONE_SSID, COMMAND_RECEIVE_PORT, VIDEO_SEND_PORT)
 
             if any(indicators):
                 # TODO: Video isn't technically required, since it should always be paired with a command.
