@@ -1,15 +1,14 @@
 from time import sleep
-from typing import Callable, Optional
+from collections import Callable
 
-from scapy.arch import get_if_addr, get_if_hwaddr
-from scapy.layers.dot11 import RadioTap, Dot11FCS, Dot11QoS, Dot11, Dot11Deauth, Dot11Disas, Dot11Beacon, Dot11Elt
-from scapy.layers.inet import TCP, IP, UDP
-from scapy.layers.l2 import Ether, LLC, SNAP
+from scapy.layers.dot11 import RadioTap, Dot11FCS, Dot11QoS, Dot11, Dot11Deauth, Dot11Disas
+from scapy.layers.inet import IP, UDP
+from scapy.layers.l2 import LLC, SNAP
 from scapy.packet import Packet
-from scapy.sendrecv import sendp, send, sniff
+from scapy.sendrecv import sendp, send
 from threading import Thread, Event
 
-from e58pro.e58pro import new_default_command_payload, new_keep_alive_payload, E58ProHeader, E58ProSecondaryHeader
+from e58pro.packet_structures import new_default_command_payload, new_keep_alive_payload, E58ProHeader, E58ProSecondaryHeader, E58ProBasePayload
 
 from e58pro.address_results import AddressResults
 
@@ -31,7 +30,7 @@ DOT11_DISCONNECT_TYPE = Dot11Disas
 #  If connectionless, start a scan, then do the unconnected_routine
 #  If connected, initiate connection (have user do that?), then do connected routine.
 
-UDP_SRC_PORT = 34914  # Arbitrary. Will be where video is sent back?
+UDP_SRC_PORT = 49092  # Arbitrary. Will be where video is sent back?
 UDP_DST_PORT = 8800
 
 
@@ -52,9 +51,14 @@ def _start_udp_keep_alive(interface_name: str, is_terminating: Event, l4_base: P
     def keep_alive_loop():
         comm_keep_alive = l4_base / new_default_command_payload()
         video_keep_alive = l4_base / new_keep_alive_payload()
+
+        seq_n = 0
         while not is_terminating.is_set():
-            sender_func([comm_keep_alive, video_keep_alive], iface=interface_name, verbose=False)
-            sleep(0.5)
+            video_keep_alive[E58ProBasePayload].sequence_number = seq_n
+            sender_func(comm_keep_alive, iface=interface_name, verbose=False)
+            sender_func(video_keep_alive, iface=interface_name, verbose=False)
+            seq_n += 1
+            sleep(0.05)
 
     thread = Thread(target=keep_alive_loop)
     thread.start()
@@ -67,8 +71,8 @@ def _initialization_routine(interface_name: str, l4_base: Packet, sender_func: C
     terminating_event = Event()
     _start_udp_keep_alive(interface_name, terminating_event, l4_base, sender_func)
 
-    sender_func(four_byte_packet * 5, iface=interface_name, verbose=False)
-    sender_func(six_byte_packet * 5, iface=interface_name, verbose=False)
+    #sender_func(four_byte_packet * 5, iface=interface_name, verbose=False)  #  FIXME: Should be disabled for connectionless, enabled for connection?
+    #sender_func(six_byte_packet * 5, iface=interface_name, verbose=False)
     return terminating_event
 
 

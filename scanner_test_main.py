@@ -3,7 +3,7 @@ from scapy.layers.inet import UDP
 from scapy.all import *
 
 from e58pro.auto_pwn import scan_for_drone_traffic
-from e58pro.e58pro import E58ProHeader, E58ProSecondaryHeader, E58ProBasePayload
+from e58pro.packet_structures import E58ProHeader, E58ProSecondaryHeader, E58ProBasePayload
 
 COMMAND_RECEIVE_PORT = 8800
 VIDEO_SEND_PORT = 1234

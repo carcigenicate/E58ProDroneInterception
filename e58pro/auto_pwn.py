@@ -1,13 +1,8 @@
 #!/usr/bin/env python3
 
-from typing import Optional
-
-from scapy.arch import get_if_addr
-from scapy.layers.dot11 import Dot11, RadioTap, Dot11Deauth, Dot11Beacon, Dot11Elt
-from scapy.layers.l2 import Ether
+from scapy.layers.dot11 import Dot11, Dot11Beacon, Dot11Elt
 from scapy.layers.inet import IP, UDP
-from scapy.packet import Packet
-from scapy.config import conf
+
 from scapy.all import *
 
 from scanners.channel_scanner import scan_channels

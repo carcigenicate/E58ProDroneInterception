@@ -9,7 +9,7 @@ from scapy.packet import Raw
 from scapy.sendrecv import srp1
 from threading import Thread, Event
 
-from e58pro.e58pro import E58ProHeader, E58ProSecondaryHeader, E58ProBasePayload
+from e58pro.packet_structures import E58ProHeader, E58ProSecondaryHeader, E58ProBasePayload
 
 DRONE_MAC = "18:b9:05:eb:16:ab"
 DRONE_IP = "192.168.169.1"
