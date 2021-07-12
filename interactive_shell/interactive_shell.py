@@ -3,13 +3,12 @@ from functools import partial
 from typing import Callable, Any, NamedTuple, Union
 from inspect import getdoc, getfullargspec
 
+from interactive_shell.helpers import mapping_from_named_functions, CommandMapping
+
 HELP_PADDING_LENGTH = 4
 
 DEFAULT_COMMAND_PRODUCER = partial(input, ":> ")
 DEFAULT_RESULT_CONSUMER = print
-
-Command = Callable[..., Any]
-CommandMapping = dict[str, Command]
 
 
 class FunctionHelp(NamedTuple):
@@ -55,17 +54,9 @@ def _parse_argument(raw_argument: str) -> Union[float, str]:
         return raw_argument
 
 
-# TODO: Should probably move to a general command helpers file
-# FIXME: Currently, Python's type hinting is too primitive to properly annotate Commands of different arities.
-#  Unless every command takes the same arguments, it will cause a type error to be raised (TypeVar behavior).
-def mapping_from_named_functions(commands) -> CommandMapping:
-    """Returns a mapping where the keys are taken from the __name__ attribute of each function."""
-    return {command.__name__: command for command in commands}
-
-
 class InteractiveShell:
     def __init__(self,
-                 command_mapping: dict[str, Command],
+                 command_mapping: CommandMapping,
                  command_producer: Callable[[], str] = DEFAULT_COMMAND_PRODUCER,
                  result_consumer: Callable[[str], None] = DEFAULT_RESULT_CONSUMER):
         self._commands = command_mapping.copy() | self._produce_shell_commands()

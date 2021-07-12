@@ -4,8 +4,11 @@ from scapy.layers.inet import UDP
 from scapy.packet import Packet, bind_layers, Raw
 from scapy.fields import XByteField, XNBytesField, LEIntField
 
-VIDEO_KEEP_ALIVE_PAYLOAD = b'\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x18\x00\x00\x00\xff\xff\xff\xff\xff' \
-                     b'\xff\xff\xff\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x10\x00\x00\x00\x1e5\x1b\x18'
+# VIDEO_KEEP_ALIVE_PAYLOAD = b'\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x18\x00\x00\x00\xff\xff\xff\xff\xff' \
+#                      b'\xff\xff\xff\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x10\x00\x00\x00\x1e5\x1b\x18'
+
+JOYSTICK_MIN = 0  # Inclusive
+JOYSTICK_MAX = 0xFF  # Inclusive
 
 
 class Command(IntFlag):
@@ -131,8 +134,8 @@ def new_default_command_payload() -> E58ProBasePayload:
     return E58ProHeader() / E58ProSecondaryHeader() / E58ProBasePayload()
 
 
-def new_keep_alive_payload() -> Raw():
-    return new_default_command_payload() / Raw(VIDEO_KEEP_ALIVE_PAYLOAD)
+def new_video_ack(ack_n: int) -> E58VideoACKExtension():
+    return new_default_command_payload() / E58VideoACKExtension(ack_number=ack_n)
 
 
 def tests():

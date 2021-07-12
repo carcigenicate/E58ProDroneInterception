@@ -7,6 +7,7 @@ from scapy.all import *
 
 from scanners.channel_scanner import scan_channels
 from scanners.interface_controller import InterfaceController
+from e58pro.command_payloads import E58VideoACKExtension
 from e58pro.address_results import AddressResults
 from e58pro.interception_routines import connectionless_interception_routine, connected_interception_routine
 
@@ -88,6 +89,16 @@ def scan_for_drone_traffic(interface_name: str,
                     command = packet
                 elif packet[UDP].sport == video_send_port:
                     video = packet
+
+
+def _scan_for_current_video_ack(interface_name: str, timeout: Optional[float] = None) -> Optional[int]:
+    def is_video(p: Packet) -> bool:
+        return E58VideoACKExtension in p
+    found = sniff(iface=interface_name, count=1, filter="udp", lfilter=is_video, timeout=timeout)
+    if found:
+        return found[0][E58VideoACKExtension].ack_number
+    else:
+        return None
 
 
 def connectionless_main(interface_name: str, secs_per_channel: float) -> None:
