@@ -37,11 +37,6 @@ def _setup_callbacks(xbox: Xbox360Controller, e58: E58ProController) -> None:
                 callback()
         return cb
 
-    xbox.button_a.when_pressed = produce_btn_cb(e58.takeoff)
-    xbox.button_b.when_pressed = produce_btn_cb(e58.stop)
-
-    # Axis Callbacks
-
     def produce_axis_cb(x_handler: Callable[[int], None], y_handler: Callable[[int], None]) -> Callable[[Axis], None]:
         def cb(axis: Axis):
             with lock:
@@ -50,11 +45,14 @@ def _setup_callbacks(xbox: Xbox360Controller, e58: E58ProController) -> None:
                 y_handler(y)
         return cb
 
+    xbox.button_a.when_pressed = produce_btn_cb(e58.takeoff)
+    xbox.button_b.when_pressed = produce_btn_cb(e58.stop)
+
     xbox.axis_l.when_moved = produce_axis_cb(e58.turn_control, e58.elevation_control)
     xbox.axis_r.when_moved = produce_axis_cb(e58.sideways_control, e58.direction_control)
 
 
-def xbox_360_control_routine(interface_name: str, l4_base: UDP) -> None:
+def xbox_360_control_routine(interface_name: str, l4_base: UDP, sender_func: Callable) -> None:
     with Xbox360Controller() as xbox_control_input:
         e58_control_output = E58ProController(interface_name, l4_base)
         _setup_callbacks(xbox_control_input, e58_control_output)

@@ -1,9 +1,7 @@
 from typing import Optional, Iterator
 
-from scapy.layers.inet import UDP, IP
 from scapy.packet import Packet
 from scapy.sendrecv import sniff
-from scapy.layers.dot11 import Dot11, Dot11Beacon, Dot11Elt
 
 from scanners.interface_controller import InterfaceController
 

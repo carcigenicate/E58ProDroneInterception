@@ -1,7 +1,7 @@
 from enum import IntFlag
 
 from scapy.layers.inet import UDP
-from scapy.packet import Packet, bind_layers, Raw
+from scapy.packet import Packet, bind_layers
 from scapy.fields import XByteField, XNBytesField, LEIntField
 
 # VIDEO_KEEP_ALIVE_PAYLOAD = b'\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x18\x00\x00\x00\xff\xff\xff\xff\xff' \
@@ -83,7 +83,7 @@ class E58ProBasePayload(Packet):
                    XByteField("left_vert", 0x80),
                    XByteField("left_horz", 0x80),
                    XByteField("command", 0x00),
-                   XByteField("control_modifier", 0x02),  # What should the default be? 0 or 2?
+                   XByteField("control_modifier", 0x02),  # TODO: What should the default be? 0 or 2?
                    XNBytesField("empty_block", 0x00, 10),
                    XByteField("checksum", None),
                    XByteField("controller_footer", 0x99),
@@ -136,11 +136,3 @@ def new_default_command_payload() -> E58ProBasePayload:
 
 def new_video_ack(ack_n: int) -> E58VideoACKExtension():
     return new_default_command_payload() / E58VideoACKExtension(ack_number=ack_n)
-
-
-def tests():
-    p = E58ProBasePayload()
-
-    assert len(p) == 0x52
-    assert p.empty_block == 0x00
-    assert E58ProBasePayload(bytes(p)).checksum == 0x02

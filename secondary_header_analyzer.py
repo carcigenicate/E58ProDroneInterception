@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
 
-from time import sleep
-
 from scapy.arch import get_if_addr, get_if_hwaddr
-from scapy.layers.inet import TCP, IP, UDP
+from scapy.layers.inet import IP, UDP
 from scapy.layers.l2 import Ether
-from scapy.packet import Raw
 from scapy.sendrecv import srp1
-from threading import Thread, Event
 
-from e58pro.packet_structures import E58ProHeader, E58ProSecondaryHeader, E58ProBasePayload
+from e58pro.command_payloads import E58ProHeader, E58ProSecondaryHeader, E58ProBasePayload
 
 DRONE_MAC = "18:b9:05:eb:16:ab"
 DRONE_IP = "192.168.169.1"

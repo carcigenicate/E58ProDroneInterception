@@ -6,6 +6,8 @@ from scapy.layers.inet import UDP
 from e58pro.command_payloads import E58ProBasePayload, new_default_command_payload, Command
 
 # FIXME: Completely untested
+# TODO: Change the shell to use this class instead of the closures it's using now?
+
 class E58ProController:
     """A class that allows for control of an E58Pro (or equivalent) drone."""
     DEFAULT_KWARGS = {"verbose": False}

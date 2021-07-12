@@ -1,8 +1,7 @@
-from typing import Sequence, Type
+from typing import Sequence, Type, Callable
 from time import sleep
 
 from scapy.packet import Packet
-from scapy.sendrecv import sendp
 
 from e58pro.command_payloads import E58ProBasePayload, Command
 from interactive_shell.interactive_shell import mapping_from_named_functions, CommandMapping
@@ -15,9 +14,10 @@ def _chunk(seq: Sequence, chunk_size: int):
         yield seq[i:i+chunk_size]
 
 
-def produce_commands(interface_name: str, command_packet: E58ProBasePayload) -> CommandMapping:
+# TODO: Add "sender_func" parameter so can be used in connected mode.
+def produce_commands(interface_name: str, command_packet: E58ProBasePayload, sender_func: Callable) -> CommandMapping:
     def _send(packet: Packet):
-        sendp(packet, iface=interface_name, verbose=False)
+        sender_func(packet, iface=interface_name, verbose=False)
 
     def _mod_copy(layer: Type[Packet], field: str, value) -> Packet:
         copy = command_packet.copy()
