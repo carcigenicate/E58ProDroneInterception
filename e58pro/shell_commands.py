@@ -4,7 +4,7 @@ from time import sleep
 from scapy.packet import Packet
 from scapy.sendrecv import sendp
 
-from e58pro.packet_structures import E58ProBasePayload, Command
+from e58pro.command_payloads import E58ProBasePayload, Command
 from interactive_shell.interactive_shell import mapping_from_named_functions, CommandMapping
 
 HELP_CHUNK_SIZE = 5
