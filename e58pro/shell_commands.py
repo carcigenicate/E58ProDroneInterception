@@ -15,9 +15,12 @@ def _chunk(seq: Sequence, chunk_size: int):
 
 
 # TODO: Add "sender_func" parameter so can be used in connected mode.
-def produce_commands(interface_name: str, command_packet: E58ProBasePayload, sender_func: Callable) -> CommandMapping:
+def produce_commands(interface_name: str,
+                     command_packet: E58ProBasePayload,
+                     sender_func: Callable,
+                     datagrams_per_send: int) -> CommandMapping:
     def _send(packet: Packet):
-        sender_func(packet, iface=interface_name, verbose=False)
+        sender_func(packet * datagrams_per_send, iface=interface_name, verbose=False)
 
     def _mod_copy(layer: Type[Packet], field: str, value) -> Packet:
         copy = command_packet.copy()

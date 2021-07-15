@@ -82,7 +82,7 @@ class E58ProBasePayload(Packet):
                    XByteField("right_horz", 0x80),
                    XByteField("left_vert", 0x80),
                    XByteField("left_horz", 0x80),
-                   XByteField("command", 0x00),
+                   XByteField("command", 0x00),  # FIXME: Is shadowed by the name of Packet.command!
                    XByteField("control_modifier", 0x02),  # TODO: What should the default be? 0 or 2?
                    XNBytesField("empty_block", 0x00, 10),
                    XByteField("checksum", None),

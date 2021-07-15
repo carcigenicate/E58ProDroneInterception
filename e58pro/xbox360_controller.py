@@ -9,7 +9,7 @@ from xbox360controller.controller import Button, Axis
 from e58pro.command_payloads import JOYSTICK_MIN, JOYSTICK_MAX
 from e58pro.controller import E58ProController
 
-AXIS_MIN = 0
+AXIS_MIN = -1
 AXIS_MAX = 1
 
 
@@ -29,16 +29,16 @@ def _setup_callbacks(xbox: Xbox360Controller, e58: E58ProController) -> None:
     # Since xbox_controller uses threads, and e58_controller isn't thread-safe.
     lock = Lock()
 
-    # Button Callbacks
-
     def produce_btn_cb(callback: Callable[[], None]) -> Callable[[Button], None]:
         def cb(_):
+            print(f"Button {_.name} pressed!")
             with lock:
                 callback()
         return cb
 
     def produce_axis_cb(x_handler: Callable[[int], None], y_handler: Callable[[int], None]) -> Callable[[Axis], None]:
         def cb(axis: Axis):
+            print(f"Axis {axis.name} moved to {axis.x}, {axis.y}!")
             with lock:
                 x, y = _axis_to_drone_tup(axis)
                 x_handler(x)
@@ -54,7 +54,7 @@ def _setup_callbacks(xbox: Xbox360Controller, e58: E58ProController) -> None:
 
 def xbox_360_control_routine(interface_name: str, l4_base: UDP, sender_func: Callable) -> None:
     with Xbox360Controller() as xbox_control_input:
-        e58_control_output = E58ProController(interface_name, l4_base)
+        e58_control_output = E58ProController(interface_name, l4_base, sender_func)
         _setup_callbacks(xbox_control_input, e58_control_output)
 
         try:
@@ -62,7 +62,7 @@ def xbox_360_control_routine(interface_name: str, l4_base: UDP, sender_func: Cal
         except KeyboardInterrupt:
             pass
         finally:
-            # FIXME: SHOULD BE CHANGED TO .takeoff (land) ONCE WE START FLYING IT?
+            # FIXME: SHOULD BE CHANGED TO .takeoff (land) ONCE WE START FLYING IT SO IT DOESN"T JUST FALL OUT OF THE SKY?
             e58_control_output.stop()  # For safety.
 
 
