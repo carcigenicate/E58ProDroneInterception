@@ -12,7 +12,6 @@ def _chunk(seq: Sequence, chunk_size: int):
         yield seq[i:i+chunk_size]
 
 
-# TODO: Add "sender_func" parameter so can be used in connected mode.
 def produce_commands(proc_controller: TransmitterProcessController,
                      datagrams_per_send: int) -> CommandMapping:
     def _q(**fields):

@@ -6,7 +6,6 @@ from scapy.layers.inet import UDP
 from e58pro.command_payloads import E58ProBasePayload, new_default_command_payload, Command
 from e58pro.transmitter_process import TransmitterProcessController, CommandRequest
 
-# FIXME: Completely untested
 # TODO: Change the shell to use this class instead of the closures it's using now?
 
 DEFAULT_N_DATAGRAMS_PER_SEND = 10

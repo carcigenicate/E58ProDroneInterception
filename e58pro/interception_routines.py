@@ -54,8 +54,6 @@ def _dot11_layer_2(drone_mac: str, controller_mac: str) -> SNAP():
 
 
 # TODO: Also start thread that watches for video ACK numbers and responds to keep the video feed flowing.
-# TODO: Use a separate process instead so the main process doesn't get bogged down with sends?
-
 
 def connectionless_interception_routine(interface_name: str,
                                         addrs: ConnectionAddresses,
@@ -72,9 +70,6 @@ def connectionless_interception_routine(interface_name: str,
             endpoint_routine(proc)
     except KeyboardInterrupt:
         pass
-
-
-
 
 
 def connected_interception_routine(interface_name: str,
@@ -120,6 +115,7 @@ def _find_info_val_for(element_id: int, beacon: Dot11Beacon) -> Optional[bytes]:
             return layer.info
         layer = layer.payload
     return None
+
 
 # TODO: INTEGRATE!
 def scan_for_drone_traffic(interface_name: str,

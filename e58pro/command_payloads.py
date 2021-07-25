@@ -4,9 +4,6 @@ from scapy.layers.inet import UDP
 from scapy.packet import Packet, bind_layers
 from scapy.fields import XByteField, XNBytesField, LEIntField
 
-# VIDEO_KEEP_ALIVE_PAYLOAD = b'\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x18\x00\x00\x00\xff\xff\xff\xff\xff' \
-#                      b'\xff\xff\xff\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x10\x00\x00\x00\x1e5\x1b\x18'
-
 
 class Command(IntFlag):
     """An enumeration of all the commands that the drone appears to be capable of,
@@ -80,7 +77,7 @@ class E58ProBasePayload(Packet):
                    XByteField("left_vert", 0x80),
                    XByteField("left_horz", 0x80),
                    XByteField("command", 0x00),  # FIXME: Is shadowed by the name of Packet.command!
-                   XByteField("control_modifier", 0x02),  # TODO: What should the default be? 0 or 2?
+                   XByteField("control_modifier", 0x02),
                    XNBytesField("empty_block", 0x00, 10),
                    XByteField("checksum", None),
                    XByteField("controller_footer", 0x99),
@@ -113,16 +110,10 @@ class E58VideoACKExtension(Packet):
                    XNBytesField("padding_4", 0xFF, 7),
                    XByteField("end_byte", None)]
 
-    # TODO: Auto-set end indicators fields?
-    # def post_build(self, this_layer: bytes, payload: bytes) -> bytes:
-    #     if not (self.end_indicator and self.end_byte and self.extra_ack_indicator):
-    #         mut_bytes = bytearray(this_layer)
-    #         mut_bytes.extend(payload)
-
 
 # Any inbound UDP traffic with a destination port of 8800 will be parsed as the controller body
 bind_layers(UDP, E58ProHeader, dport=8800)
-bind_layers(E58ProHeader, E58ProSecondaryHeader)  # TODO: Need to specify filters?
+bind_layers(E58ProHeader, E58ProSecondaryHeader)
 bind_layers(E58ProSecondaryHeader, E58ProBasePayload)
 bind_layers(E58ProBasePayload, E58VideoACKExtension)
 

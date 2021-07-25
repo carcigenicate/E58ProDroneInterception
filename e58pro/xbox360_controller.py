@@ -15,8 +15,6 @@ from e58pro.command_payloads import E58ProBasePayload
 from e58pro.controller import E58ProController
 from e58pro.transmitter_process import TransmitterProcessController
 
-#from scapy.all import *  # TODO: Remove
-
 INTERFACE = "wlx4401bb9182b7"
 
 AXIS_MIN = -1
@@ -137,32 +135,32 @@ def xbox_360_control_routine(proc_controller: TransmitterProcessController) -> N
             termination_event.set()
 
 
-def _simple_prn(packet: Packet, **kwargs) -> None:
-    packet = packet[0] if isinstance(packet, list) else packet
-    if E58ProBasePayload in packet:
-        base = packet[E58ProBasePayload]
-        print((hex(base.left_horz), hex(base.left_vert)), (hex(base.right_horz), hex(base.right_vert)), kwargs)
-
-
-def simple():
-    UDP_SRC_PORT = 49092  # TODO: Will be need to be set to the port the video is being sent to.
-    UDP_DST_PORT = 8800
-
-    def _udp_layer_3_4(drone_ip: str, controller_ip: str) -> UDP:
-        return IP(src=controller_ip, dst=drone_ip) / \
-               UDP(sport=UDP_SRC_PORT, dport=UDP_DST_PORT)
-
-    def _dot11_layer_2(drone_mac: str, controller_mac: str) -> SNAP():
-        # QoS Data
-        return RadioTap(present="Rate+TXFlags") / \
-               Dot11FCS(addr1=drone_mac, addr2=controller_mac, addr3=drone_mac, type=2, subtype=8) / \
-               Dot11QoS() / \
-               LLC(ssap=0xAA, dsap=0xAA) / \
-               SNAP()
-
-    controller_l4_base = _dot11_layer_2("18:b9:05:eb:16:ab", "a0:c9:a0:9d:aa:b9") / \
-                         _udp_layer_3_4("192.168.169.1", "192.168.169.20")
-    with TransmitterProcessController(INTERFACE, 5, controller_l4_base, _simple_prn, 5) as t:
-        xbox_360_control_routine(t)
-
-    # TODO: Need to send 4-byte first?
+# def _simple_prn(packet: Packet, **kwargs) -> None:
+#     packet = packet[0] if isinstance(packet, list) else packet
+#     if E58ProBasePayload in packet:
+#         base = packet[E58ProBasePayload]
+#         print((hex(base.left_horz), hex(base.left_vert)), (hex(base.right_horz), hex(base.right_vert)), kwargs)
+#
+#
+# def simple():
+#     UDP_SRC_PORT = 49092  # TODO: Will be need to be set to the port the video is being sent to.
+#     UDP_DST_PORT = 8800
+#
+#     def _udp_layer_3_4(drone_ip: str, controller_ip: str) -> UDP:
+#         return IP(src=controller_ip, dst=drone_ip) / \
+#                UDP(sport=UDP_SRC_PORT, dport=UDP_DST_PORT)
+#
+#     def _dot11_layer_2(drone_mac: str, controller_mac: str) -> SNAP():
+#         # QoS Data
+#         return RadioTap(present="Rate+TXFlags") / \
+#                Dot11FCS(addr1=drone_mac, addr2=controller_mac, addr3=drone_mac, type=2, subtype=8) / \
+#                Dot11QoS() / \
+#                LLC(ssap=0xAA, dsap=0xAA) / \
+#                SNAP()
+#
+#     controller_l4_base = _dot11_layer_2("18:b9:05:eb:16:ab", "a0:c9:a0:9d:aa:b9") / \
+#                          _udp_layer_3_4("192.168.169.1", "192.168.169.20")
+#     with TransmitterProcessController(INTERFACE, 5, controller_l4_base, _simple_prn, 5) as t:
+#         xbox_360_control_routine(t)
+#
+#     # TODO: Need to send 4-byte first?
