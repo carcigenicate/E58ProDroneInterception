@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from argparse import ArgumentParser
+import logging
 
 from e58pro.interception_routines import connected_main, connectionless_main
 from e58pro.interactive_shell_controller import interactive_shell_control_routine
@@ -11,6 +12,9 @@ DEFAULT_CHANNEL_TIME = 0.3
 
 
 def main():
+    logging.basicConfig(filename="main_process.log",
+                        format="%(asctime)s: %(levelname)s at %(filename)s/%(funcName)s: %(message)s")
+
     parser = ArgumentParser()
     parser.add_argument("--connection", "-x", default="i", choices="ic",
                         help="How to interact with the drone. One of (i)nterception, (c)onnection).")

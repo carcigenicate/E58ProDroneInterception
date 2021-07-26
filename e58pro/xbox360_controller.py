@@ -15,6 +15,7 @@ from e58pro.command_payloads import E58ProBasePayload
 from e58pro.controller import E58ProController
 from e58pro.transmitter_process import TransmitterProcessController
 
+
 INTERFACE = "wlx4401bb9182b7"
 
 AXIS_MIN = -1
@@ -52,7 +53,6 @@ def _axis_to_drone_tup(axis: Axis, speed_perc: float) -> tuple[int, int]:
 def _setup_button_callbacks(xbox: Xbox360Controller, e58: E58ProController, controller_lock: Lock) -> None:
     def produce_btn_cb(callback: Callable[[], None]) -> Callable[[Button], None]:
         def cb(_):
-            #print(f"Button {_.name} pressed!")
             with controller_lock:
                 callback()
         return cb

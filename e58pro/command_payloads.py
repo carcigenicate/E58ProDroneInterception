@@ -84,7 +84,9 @@ class E58ProBasePayload(Packet):
 
                    XNBytesField("unknown_block_4",
                                 # A shortcut so I don't need to write out 44 0x00s.
-                                int.from_bytes(bytes([*([0x00] * 44), 0x32, 0x4B, 0x14, 0x2D, 0x00, 0x00]), "big"),
+                                int.from_bytes(bytes([*([0x00] * 44),
+                                                      0x32, 0x4B, 0x14, 0x2D, 0x00, 0x00]),
+                                               "big"),
                                 50)]
 
     def post_build(self, this_layer: bytes, payload: bytes) -> bytes:

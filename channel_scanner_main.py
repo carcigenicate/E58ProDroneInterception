@@ -7,6 +7,7 @@ from scanners.interface_controller import InterfaceController
 
 DEFAULT_INTERFACE = "wlx4401bb9182b7"
 
+
 def main():
     parser = ArgumentParser(usage="Automatically changes the channels of the interface to scan over all "
                                   "available channels of the interface.")

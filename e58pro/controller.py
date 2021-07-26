@@ -1,10 +1,7 @@
-from typing import Any, Callable
+import logging
 
-from scapy.sendrecv import sendp
-from scapy.layers.inet import UDP
-
-from e58pro.command_payloads import E58ProBasePayload, new_default_command_payload, Command
-from e58pro.transmitter_process import TransmitterProcessController, CommandRequest
+from e58pro.command_payloads import Command
+from e58pro.transmitter_process import TransmitterProcessController
 
 # TODO: Change the shell to use this class instead of the closures it's using now?
 
@@ -26,7 +23,7 @@ class E58ProController:
     def _send(self, should_persist: bool, /,  **fields):
         succeeded = self._process_controller.send_request(fields, self._datagrams_per_send, should_persist)
         if not succeeded:
-            print(f"Failed to send due to full queue: {fields}")  # TODO: Change to actual logging.
+            logging.warning(f"Failed to send due to full queue: {fields}")
 
     def takeoff(self) -> None:
         self._send(False, command=Command.TAKEOFF)
