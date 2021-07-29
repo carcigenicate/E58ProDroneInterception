@@ -1,3 +1,4 @@
+import time
 from collections import Callable
 from threading import Lock, Event, Thread
 import signal
@@ -31,6 +32,10 @@ ELEV_TURN_SPEED_PERC = 0.7
 
 JOYSTICK_UPDATES_PER_SECOND = 10
 
+RUMBLE_STEP_MS = 500
+RUMBLE_MIN = 50
+RUMBLE_MAX = 100
+RUMBLE_STEPS = 3
 
 def _map_range(n: float, src_min: float, src_max: float, dst_min: float, dst_max: float) -> float:
     """Maps n from the range [src_min, src_max] to the range [dst_min, dst_max]."""
@@ -108,9 +113,18 @@ def _start_axis_sender(xbox_input: Xbox360Controller,
     return termination_event
 
 
+def rumble_pattern(controller: Xbox360Controller, start_str: int, end_str: int, n_steps: int) -> None:
+    for strength in range(start_str, end_str, (end_str - start_str) // n_steps + 1):
+        scaled = strength / 100
+        controller.set_rumble(scaled, scaled, RUMBLE_STEP_MS)
+        time.sleep(RUMBLE_STEP_MS / 1000)
+
+
 def xbox_360_control_routine(proc_controller: TransmitterProcessController) -> None:
     e58_lock = Lock()
     with Xbox360Controller() as xbox_control_in:
+        rumble_pattern(xbox_control_in, RUMBLE_MIN, RUMBLE_MAX, RUMBLE_STEPS)
+
         e58_control_out = E58ProController(proc_controller, 5)
         _setup_button_callbacks(xbox_control_in, e58_control_out, e58_lock)
 
@@ -130,8 +144,9 @@ def xbox_360_control_routine(proc_controller: TransmitterProcessController) -> N
         except KeyboardInterrupt:
             pass
         finally:
+            rumble_pattern(xbox_control_in, RUMBLE_MAX, RUMBLE_MIN, RUMBLE_STEPS)
             # FIXME: SHOULD BE CHANGED TO .takeoff (land) ONCE WE START FLYING IT SO IT DOESN'T JUST FALL OUT OF THE SKY?
-            e58_control_out.stop()  # For safety.
+            # e58_control_out.stop()  # For safety.
             termination_event.set()
 
 
