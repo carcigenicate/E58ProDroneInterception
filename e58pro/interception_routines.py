@@ -1,17 +1,16 @@
-from time import sleep
 from collections import Callable
 from typing import Optional
 
 from scapy.arch import get_if_addr
 from scapy.config import conf
-from scapy.layers.dot11 import RadioTap, Dot11FCS, Dot11QoS, Dot11, Dot11Deauth, Dot11Disas, Dot11Beacon, Dot11Elt
+from scapy.layers.dot11 import RadioTap, Dot11FCS, Dot11QoS, Dot11, Dot11Beacon, Dot11Elt
 from scapy.layers.inet import IP, UDP
 from scapy.layers.l2 import LLC, SNAP
 from scapy.packet import Packet
 from scapy.sendrecv import sendp, send, sniff
 
-from e58pro.command_payloads import new_video_ack, E58ProBasePayload, E58VideoACKExtension
-from e58pro.transmitter_process import TransmitterProcessController, CommandRequest
+from e58pro.command_payloads import E58VideoACKExtension
+from e58pro.transmitter_process import TransmitterProcessController
 
 from e58pro.connection_addresses import ConnectionAddresses
 

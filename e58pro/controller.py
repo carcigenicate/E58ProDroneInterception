@@ -28,14 +28,11 @@ class E58ProController:
     def takeoff(self) -> None:
         self._send(False, command=Command.TAKEOFF)
 
-    # They're the same command.
-    land = takeoff
-
     def stop(self) -> None:
         self._send(False, command=Command.STOP)
 
-    def roll(self) -> None:
-        self._send(False, command=Command.ROLL)  # TODO: Double check if a roll command is continuous or not.
+    # def roll(self) -> None:
+    #     self._send(False, command=Command.ROLL)  # TODO: Double check if a roll command is continuous or not.
 
     def gyro_check(self) -> None:
         self._send(False, command=Command.GYRO_CHECK)
