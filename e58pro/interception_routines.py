@@ -3,7 +3,7 @@ from typing import Optional
 
 from scapy.arch import get_if_addr
 from scapy.config import conf
-from scapy.layers.dot11 import RadioTap, Dot11FCS, Dot11QoS, Dot11, Dot11Beacon, Dot11Elt
+from scapy.layers.dot11 import RadioTap, Dot11FCS, Dot11QoS, Dot11
 from scapy.layers.inet import IP, UDP
 from scapy.layers.l2 import LLC, SNAP
 from scapy.packet import Packet
@@ -23,15 +23,8 @@ DRONE_VIDEO_SEND_PORT = 1234
 
 WILDCARD_IP = "0.0.0.0"
 
-#COMPLEX_SCANNER_BPF_FILTER = "(wlan type mgt) or udp"
-COMPLEX_SCANNER_BPF_FILTER = "udp"
-
-SSID_ELEMENT_ID = 0
-
 UDP_SRC_PORT = 49092  # TODO: Will be need to be set to the port the video is being sent to.
 UDP_DST_PORT = 8800
-
-DEFAULT_INTERFACE = "wlx4401bb9182b7"
 
 COMMANDS_PER_SECOND = 40
 
@@ -51,8 +44,6 @@ def _dot11_layer_2(drone_mac: str, controller_mac: str) -> SNAP():
            LLC(ssap=0xAA, dsap=0xAA) / \
            SNAP()
 
-
-# TODO: Also start thread that watches for video ACK numbers and responds to keep the video feed flowing.
 
 def connectionless_interception_routine(interface_name: str,
                                         addrs: ConnectionAddresses,
@@ -107,51 +98,6 @@ def scan_for_drone(interface_name: str, secs_per_channel: float = 0.3) -> tuple[
                 return chan, addrs
 
 
-def _find_info_val_for(element_id: int, beacon: Dot11Beacon) -> Optional[bytes]:
-    layer = beacon
-    while layer:
-        if isinstance(layer, Dot11Elt) and layer.ID == element_id:
-            return layer.info
-        layer = layer.payload
-    return None
-
-
-# TODO: INTEGRATE!
-def scan_for_drone_traffic(interface_name: str,
-                           secs_per_channel: float,
-                           ssid_prefix: bytes,
-                           command_receive_port: int,
-                           video_send_port: int
-                           ) -> tuple[int, Optional[Dot11Beacon], Optional[UDP], Optional[UDP]]:
-    """Scans each channel to find traffic that's indicative of a drone.
-    Returns a tuple of (channel, found_beacon?, found_command?, found_video?) if any of traffic was found.
-    For the SSID, only the prefix is checked. The entire string doesn't need to match."""
-    while True:
-        last_channel = None
-        beacon = None
-        command = None
-        video = None
-        for chan, packet in scan_channels(interface_name, secs_per_channel,):  # COMPLEX_SCANNER_BPF_FILTER):
-            if last_channel != chan:
-                if video or command or beacon:
-                    return last_channel, beacon, command, video
-                else:
-                    beacon = None
-                    command = None
-                    video = None
-                    last_channel = chan
-
-            if Dot11Beacon in packet:
-                ssid = _find_info_val_for(SSID_ELEMENT_ID, packet)
-                if ssid and ssid.startswith(ssid_prefix):
-                    beacon = packet
-            elif UDP in packet:
-                if packet[UDP].dport == command_receive_port:
-                    command = packet
-                elif packet[UDP].sport == video_send_port:
-                    video = packet
-
-
 def _scan_for_current_video_ack(interface_name: str, timeout: Optional[float] = None) -> Optional[int]:
     found = sniff(iface=interface_name,
                   count=1,
@@ -188,10 +134,3 @@ def connected_main(interface_name: str, endpoint_routine: EndpointRoutine) -> No
         raise OSError(f"Cannot find device {interface_name}") from e
 
     connected_interception_routine(interface_name, drone_ip, our_ip, endpoint_routine)
-
-
-def test_routine():
-    chan, addrs = scan_for_drone(DEFAULT_INTERFACE, 2)
-    controller_l4_base = _dot11_layer_2(addrs.drone_mac, addrs.controller_mac) / \
-                         _udp_layer_3_4(addrs.drone_ip, addrs.controller_ip)
-    return TransmitterProcessController(DEFAULT_INTERFACE, 40, controller_l4_base, sendp)

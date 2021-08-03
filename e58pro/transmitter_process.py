@@ -19,7 +19,6 @@ from e58pro.command_payloads import new_video_ack, E58ProBasePayload
 
 DEAUTH_REASON = 0x03
 SEND_DURATION = 1314  # 1314 microseconds. Arbitrary? Stolen from airodump captures.
-DEAUTH_SUBTYPE = 12
 
 # Can be either DOT11Deauth or Dot11Disas
 DOT11_DISCONNECT_TYPE = Dot11Disas
@@ -39,8 +38,6 @@ class CommandRequest(NamedTuple):
 
 NEUTRAL_COMMAND_REQUEST = CommandRequest({}, persist_new_state=True)
 
-
-# TODO: Add logging and include PID formatter specifier.
 
 def _new_sequence_control(frag: int, seq: int) -> int:
     return (seq << 4) + frag

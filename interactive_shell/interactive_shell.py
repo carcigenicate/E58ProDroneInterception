@@ -65,26 +65,6 @@ class InteractiveShell:
 
         self._is_terminating = False
 
-    # def loop(self) -> None:
-    #     try:
-    #         while not self._is_terminating:
-    #             raw_command = self._command_producer()
-    #             command, *args = raw_command.split()
-    #             lower_command = command.lower()
-    #             command_func = self._commands.get(lower_command, None)
-    #             if command_func is None:
-    #                 self._result_consumer(f"Command Not Found: {lower_command}")
-    #             else:
-    #                 parsed_args = map(_parse_argument, args)
-    #                 try:
-    #                     result = command_func(*parsed_args)
-    #                     if result is not None:
-    #                         self._result_consumer(result)
-    #                 except Exception as e:
-    #                     self._result_consumer(f"Command Error: {e}")
-    #     except KeyboardInterrupt:
-    #         pass
-
     def loop(self) -> None:
         try:
             last_command = None
@@ -147,18 +127,3 @@ class InteractiveShell:
             self._is_terminating = True
 
         return mapping_from_named_functions([help, exit])
-
-# def multi(iters: int, name: str) -> str:
-#     """Multiplies Strings!"""
-#     return name * int(iters)
-#
-# def add(n: int, m: int) -> str:
-#     """Adds Numbers!"""
-#     return str(n + m)
-#
-# def greet(name: str) -> str:
-#     """Greets You!"""
-#     return f"Hello {name}!"
-#
-#
-# test_commands = mapping_from_named_functions([multi, add, greet])

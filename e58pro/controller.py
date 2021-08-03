@@ -3,8 +3,6 @@ import logging
 from e58pro.command_payloads import Command
 from e58pro.transmitter_process import TransmitterProcessController
 
-# TODO: Change the shell to use this class instead of the closures it's using now?
-
 DEFAULT_N_DATAGRAMS_PER_SEND = 10
 
 
@@ -30,9 +28,6 @@ class E58ProController:
 
     def stop(self) -> None:
         self._send(False, command=Command.STOP)
-
-    # def roll(self) -> None:
-    #     self._send(False, command=Command.ROLL)  # TODO: Double check if a roll command is continuous or not.
 
     def gyro_check(self) -> None:
         self._send(False, command=Command.GYRO_CHECK)
